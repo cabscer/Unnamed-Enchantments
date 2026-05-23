@@ -1,0 +1,1423 @@
+local repo = 'https://raw.githubusercontent.com/cabscer/Unnamed-Enchantments/main/'
+
+local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
+local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
+local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
+
+local Players = game:GetService('Players')
+local RunService = game:GetService('RunService')
+local UserInputService = game:GetService('UserInputService')
+local ReplicatedStorage = game:GetService('ReplicatedStorage')
+local Workspace = game:GetService('Workspace')
+local Lighting = game:GetService('Lighting')
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+local Camera = Workspace.CurrentCamera
+
+-- Rivals Game Detection
+local function IsRivals()
+    return game.PlaceId == 17625359962 or game.PlaceId == 17720162456
+end
+
+if not IsRivals() then
+    Library:Notify('This script is designed for Roblox Rivals!', 5)
+end
+
+-- ============================================================
+-- ZixyESP INTEGRATION
+-- ============================================================
+local ZixyESP = nil
+local esp = nil
+local ESP_Loaded = false
+
+-- Try to load ZixyESP from multiple sources
+local function LoadZixyESP()
+    if ESP_Loaded then return true end
+
+    local urls = {
+        'https://raw.githubusercontent.com/zixypy/zixyx/refs/heads/main/zixyesp.txt',
+        'https://raw.githubusercontent.com/zixypy/zixyx/main/zixyesp.txt',
+        'https://pastebin.com/raw/4rVNKnw0'
+    }
+
+    for _, url in ipairs(urls) do
+        local success, result = pcall(function()
+            return loadstring(game:HttpGet(url))()
+        end)
+        if success and result then
+            ZixyESP = result
+            esp = ZixyESP.new()
+            ESP_Loaded = true
+            return true
+        end
+    end
+
+    return false
+end
+
+-- Weapon Data
+local WeaponData = {
+    Primary = {
+        'Assault Rifle', 'Burst Rifle', 'Crossbow', 'Bow', 'Sniper',
+        'Shotgun', 'RPG', 'Grenade Launcher', 'Minigun', 'Flamethrower',
+        'Paintball Gun', 'Gunblade', 'Energy Rifle', 'Distortion', 'Scepter'
+    },
+    Secondary = {
+        'Handgun', 'Revolver', 'Slingshot', 'Uzi', 'Shorty',
+        'Spray', 'Exogun', 'Flare Gun', 'Energy Pistol'
+    },
+    Melee = {
+        'Knife', 'Katana', 'Chainsaw', 'Daggers', 'Battle Axe',
+        'Riot Shield', 'Fists', 'Trowel', 'Maul', 'Glass Cannon'
+    },
+    Utility = {
+        'Medkit', 'Grenade', 'Flashbang', 'Smoke Grenade',
+        'Molotov', 'Jump Pad', 'Satchel', 'Freeze Ray',
+        'War Horn', 'Subspace Tripmine', 'Warpstone', 'Elixir', 'RNG Dice'
+    }
+}
+
+-- Enchantment Types
+local Enchantments = {
+    Weapon = {
+        { Name = 'Blast Chip', Effect = 'Explosion on hit', Tier = 'S' },
+        { Name = 'Drain Edge', Effect = 'Life Steal', Tier = 'S' },
+        { Name = 'Flame Spark', Effect = 'Burn damage over time', Tier = 'A' },
+        { Name = 'Venom Crumb', Effect = 'Poison damage', Tier = 'A' },
+        { Name = 'Frost Speck', Effect = 'Freeze enemies', Tier = 'A' },
+        { Name = 'Thunder Core', Effect = 'Chain lightning', Tier = 'S' },
+        { Name = 'Void Shard', Effect = 'Void damage + pull', Tier = 'S' },
+        { Name = 'Wind Blade', Effect = 'Wind slash projectile', Tier = 'A' },
+        { Name = 'Earth Spike', Effect = 'Ground spike eruption', Tier = 'B' },
+        { Name = 'Shadow Fang', Effect = 'Shadow dash + damage', Tier = 'A' },
+    },
+    Armor = {
+        { Name = 'Iron Shell', Effect = '+30% Defense', Tier = 'A' },
+        { Name = 'Phoenix Plume', Effect = 'Auto-revive once', Tier = 'S' },
+        { Name = 'Void Walker', Effect = 'Phase through attacks', Tier = 'S' },
+        { Name = 'Speedster', Effect = '+25% Move Speed', Tier = 'A' },
+        { Name = 'Regenerator', Effect = 'Health regen', Tier = 'B' },
+        { Name = 'Thorns', Effect = 'Reflect damage', Tier = 'B' },
+        { Name = 'Shield Bearer', Effect = 'Auto-shield on low HP', Tier = 'A' },
+        { Name = 'Juggernaut', Effect = '+50% HP, -10% Speed', Tier = 'A' },
+    }
+}
+
+-- Window Setup
+local Window = Library:CreateWindow({
+    Title = 'Unnamed Enchantments | Rivals',
+    Center = true,
+    AutoShow = true,
+    TabPadding = 8,
+    MenuFadeTime = 0.2
+})
+
+local Tabs = {
+    Combat = Window:AddTab('Combat'),
+    Weapons = Window:AddTab('Weapons'),
+    Enchantments = Window:AddTab('Enchantments'),
+    Movement = Window:AddTab('Movement'),
+    Visuals = Window:AddTab('Visuals'),
+    ['UI Settings'] = Window:AddTab('UI Settings'),
+}
+
+-- ============================================================
+-- COMBAT TAB
+-- ============================================================
+local CombatLeft = Tabs.Combat:AddLeftGroupbox('Combat Mods')
+local CombatRight = Tabs.Combat:AddRightGroupbox('Aimbot')
+
+CombatLeft:AddToggle('SilentAim', {
+    Text = 'Silent Aim',
+    Default = false,
+    Tooltip = 'Redirects bullets to nearest target'
+}):AddKeyPicker('SilentAimKey', {
+    Default = 'MB2',
+    SyncToggleState = true,
+    Mode = 'Toggle',
+    Text = 'Silent Aim',
+    NoUI = false
+})
+
+CombatLeft:AddToggle('AutoShoot', {
+    Text = 'Auto Shoot',
+    Default = false,
+    Tooltip = 'Automatically fires when target is in crosshair'
+})
+
+CombatLeft:AddToggle('RapidFire', {
+    Text = 'Rapid Fire',
+    Default = false,
+    Tooltip = 'Removes fire rate cooldown'
+})
+
+CombatLeft:AddToggle('NoRecoil', {
+    Text = 'No Recoil',
+    Default = false,
+    Tooltip = 'Removes weapon recoil'
+})
+
+CombatLeft:AddToggle('NoSpread', {
+    Text = 'No Spread',
+    Default = false,
+    Tooltip = 'Removes bullet spread'
+})
+
+CombatLeft:AddToggle('InstantEquip', {
+    Text = 'Instant Equip',
+    Default = false,
+    Tooltip = 'Removes weapon equip delay'
+})
+
+CombatLeft:AddToggle('InfiniteAmmo', {
+    Text = 'Infinite Ammo',
+    Default = false,
+    Tooltip = 'Never run out of ammo'
+})
+
+CombatLeft:AddSlider('DamageMultiplier', {
+    Text = 'Damage Multiplier',
+    Default = 1,
+    Min = 1,
+    Max = 10,
+    Rounding = 1,
+    Suffix = 'x',
+    Compact = false
+})
+
+CombatRight:AddToggle('Aimbot', {
+    Text = 'Aimbot',
+    Default = false,
+    Tooltip = 'Locks onto nearest player'
+}):AddKeyPicker('AimbotKey', {
+    Default = 'Q',
+    Mode = 'Hold',
+    Text = 'Aimbot',
+    NoUI = false
+})
+
+CombatRight:AddDropdown('AimbotPart', {
+    Values = { 'Head', 'Torso', 'Random' },
+    Default = 1,
+    Multi = false,
+    Text = 'Target Part'
+})
+
+CombatRight:AddSlider('AimbotSmoothness', {
+    Text = 'Smoothness',
+    Default = 0.1,
+    Min = 0,
+    Max = 1,
+    Rounding = 2,
+    Compact = false
+})
+
+CombatRight:AddSlider('AimbotFOV', {
+    Text = 'FOV',
+    Default = 200,
+    Min = 50,
+    Max = 800,
+    Rounding = 0,
+    Suffix = 'px',
+    Compact = false
+})
+
+CombatRight:AddToggle('AimbotShowFOV', {
+    Text = 'Show FOV Circle',
+    Default = true,
+    Tooltip = 'Draws FOV circle on screen'
+})
+
+CombatRight:AddToggle('AimbotTeamCheck', {
+    Text = 'Team Check',
+    Default = true,
+    Tooltip = 'Ignore teammates'
+})
+
+CombatRight:AddToggle('AimbotWallCheck', {
+    Text = 'Wall Check',
+    Default = false,
+    Tooltip = 'Only target visible players'
+})
+
+-- ============================================================
+-- WEAPONS TAB
+-- ============================================================
+local WeaponsLeft = Tabs.Weapons:AddLeftGroupbox('Weapon Mods')
+local WeaponsRight = Tabs.Weapons:AddRightGroupbox('Weapon Selector')
+
+WeaponsLeft:AddToggle('OneShot', {
+    Text = 'One Shot Kill',
+    Default = false,
+    Tooltip = 'All weapons kill in one hit'
+})
+
+WeaponsLeft:AddToggle('FullAuto', {
+    Text = 'Full Auto All',
+    Default = false,
+    Tooltip = 'Makes all weapons fully automatic'
+})
+
+WeaponsLeft:AddToggle('InstantReload', {
+    Text = 'Instant Reload',
+    Default = false,
+    Tooltip = 'Removes reload time'
+})
+
+WeaponsLeft:AddToggle('NoEquipCooldown', {
+    Text = 'No Equip Cooldown',
+    Default = false,
+    Tooltip = 'Removes equip animation delay'
+})
+
+WeaponsLeft:AddSlider('FireRate', {
+    Text = 'Fire Rate',
+    Default = 1,
+    Min = 0.1,
+    Max = 5,
+    Rounding = 1,
+    Suffix = 'x',
+    Compact = false
+})
+
+WeaponsLeft:AddSlider('RangeMultiplier', {
+    Text = 'Range Multiplier',
+    Default = 1,
+    Min = 1,
+    Max = 5,
+    Rounding = 1,
+    Suffix = 'x',
+    Compact = false
+})
+
+WeaponsRight:AddDropdown('PrimaryWeapon', {
+    Values = WeaponData.Primary,
+    Default = 1,
+    Multi = false,
+    Text = 'Primary Weapon'
+})
+
+WeaponsRight:AddDropdown('SecondaryWeapon', {
+    Values = WeaponData.Secondary,
+    Default = 1,
+    Multi = false,
+    Text = 'Secondary Weapon'
+})
+
+WeaponsRight:AddDropdown('MeleeWeapon', {
+    Values = WeaponData.Melee,
+    Default = 1,
+    Multi = false,
+    Text = 'Melee Weapon'
+})
+
+WeaponsRight:AddDropdown('UtilityWeapon', {
+    Values = WeaponData.Utility,
+    Default = 1,
+    Multi = false,
+    Text = 'Utility'
+})
+
+WeaponsRight:AddButton('Equip Loadout', function()
+    Library:Notify('Equipping loadout...', 2)
+end)
+
+WeaponsRight:AddButton('Max All Weapons', function()
+    Library:Notify('Maxing weapon levels...', 2)
+end)
+
+-- ============================================================
+-- ENCHANTMENTS TAB
+-- ============================================================
+local EnchLeft = Tabs.Enchantments:AddLeftGroupbox('Weapon Enchantments')
+local EnchRight = Tabs.Enchantments:AddRightGroupbox('Armor Enchantments')
+local EnchSettings = Tabs.Enchantments:AddLeftGroupbox('Enchantment Settings')
+
+for _, ench in ipairs(Enchantments.Weapon) do
+    EnchLeft:AddToggle('WeaponEnch_' .. ench.Name:gsub(' ', ''), {
+        Text = ench.Name .. ' [' .. ench.Tier .. ']',
+        Default = false,
+        Tooltip = ench.Effect
+    })
+end
+
+for _, ench in ipairs(Enchantments.Armor) do
+    EnchRight:AddToggle('ArmorEnch_' .. ench.Name:gsub(' ', ''), {
+        Text = ench.Name .. ' [' .. ench.Tier .. ']',
+        Default = false,
+        Tooltip = ench.Effect
+    })
+end
+
+EnchSettings:AddSlider('EnchantmentChance', {
+    Text = 'Proc Chance',
+    Default = 100,
+    Min = 1,
+    Max = 100,
+    Rounding = 0,
+    Suffix = '%',
+    Compact = false
+})
+
+EnchSettings:AddSlider('EnchantmentDamage', {
+    Text = 'Damage Scale',
+    Default = 1,
+    Min = 0.1,
+    Max = 5,
+    Rounding = 1,
+    Suffix = 'x',
+    Compact = false
+})
+
+EnchSettings:AddToggle('AutoEnchant', {
+    Text = 'Auto Enchant',
+    Default = false,
+    Tooltip = 'Automatically applies best enchantments'
+})
+
+EnchSettings:AddToggle('ShowEnchantmentEffects', {
+    Text = 'Show Effects',
+    Default = true,
+    Tooltip = 'Shows visual enchantment effects'
+})
+
+-- ============================================================
+-- MOVEMENT TAB
+-- ============================================================
+local MoveLeft = Tabs.Movement:AddLeftGroupbox('Speed & Jump')
+local MoveRight = Tabs.Movement:AddRightGroupbox('Misc Movement')
+
+MoveLeft:AddToggle('SpeedHack', {
+    Text = 'Speed Hack',
+    Default = false,
+    Tooltip = 'Increases walk speed'
+}):AddKeyPicker('SpeedHackKey', {
+    Default = 'LeftShift',
+    Mode = 'Hold',
+    Text = 'Speed',
+    NoUI = false
+})
+
+MoveLeft:AddSlider('WalkSpeed', {
+    Text = 'Walk Speed',
+    Default = 16,
+    Min = 16,
+    Max = 200,
+    Rounding = 0,
+    Compact = false
+})
+
+MoveLeft:AddToggle('JumpPower', {
+    Text = 'Jump Power',
+    Default = false,
+    Tooltip = 'Increases jump height'
+})
+
+MoveLeft:AddSlider('JumpHeight', {
+    Text = 'Jump Height',
+    Default = 50,
+    Min = 50,
+    Max = 300,
+    Rounding = 0,
+    Compact = false
+})
+
+MoveLeft:AddToggle('InfiniteJump', {
+    Text = 'Infinite Jump',
+    Default = false,
+    Tooltip = 'Jump infinitely in the air'
+})
+
+MoveLeft:AddToggle('BunnyHop', {
+    Text = 'Bunny Hop',
+    Default = false,
+    Tooltip = 'Auto jump while moving'
+})
+
+MoveRight:AddToggle('Fly', {
+    Text = 'Fly',
+    Default = false,
+    Tooltip = 'Allows flying'
+}):AddKeyPicker('FlyKey', {
+    Default = 'F',
+    Mode = 'Toggle',
+    Text = 'Fly',
+    NoUI = false
+})
+
+MoveRight:AddSlider('FlySpeed', {
+    Text = 'Fly Speed',
+    Default = 50,
+    Min = 10,
+    Max = 200,
+    Rounding = 0,
+    Compact = false
+})
+
+MoveRight:AddToggle('NoClip', {
+    Text = 'NoClip',
+    Default = false,
+    Tooltip = 'Walk through walls'
+}):AddKeyPicker('NoClipKey', {
+    Default = 'N',
+    Mode = 'Toggle',
+    Text = 'NoClip',
+    NoUI = false
+})
+
+MoveRight:AddToggle('AutoStrafe', {
+    Text = 'Auto Strafe',
+    Default = false,
+    Tooltip = 'Perfect strafing for speed gain'
+})
+
+MoveRight:AddToggle('EdgeJump', {
+    Text = 'Edge Jump',
+    Default = false,
+    Tooltip = 'Auto jump at edges'
+})
+
+MoveRight:AddToggle('FastLadder', {
+    Text = 'Fast Ladder',
+    Default = false,
+    Tooltip = 'Climb ladders faster'
+})
+
+-- ============================================================
+-- VISUALS TAB (ZixyESP Integration)
+-- ============================================================
+local VisLeft = Tabs.Visuals:AddLeftGroupbox('ESP Controls')
+local VisRight = Tabs.Visuals:AddRightGroupbox('ESP Settings')
+local VisSettings = Tabs.Visuals:AddLeftGroupbox('ESP Colors & Distance')
+
+-- Box ESP
+VisLeft:AddToggle('BoxESP', {
+    Text = 'Box ESP',
+    Default = false,
+    Tooltip = 'Draws boxes around players'
+})
+
+VisLeft:AddLabel('Box Color'):AddColorPicker('BoxESPColor', {
+    Default = Color3.new(0.403922, 0.349020, 0.701961),
+    Title = 'Box Color',
+    Transparency = 0
+})
+
+-- Name ESP
+VisLeft:AddToggle('NameESP', {
+    Text = 'Name ESP',
+    Default = false,
+    Tooltip = 'Shows player names'
+})
+
+-- Distance ESP
+VisLeft:AddToggle('DistanceESP', {
+    Text = 'Distance ESP',
+    Default = false,
+    Tooltip = 'Shows distance to players'
+})
+
+-- Skeleton ESP
+VisLeft:AddToggle('SkeletonESP', {
+    Text = 'Skeleton ESP',
+    Default = false,
+    Tooltip = 'Draws player skeleton'
+})
+
+VisLeft:AddLabel('Skeleton Color'):AddColorPicker('SkeletonESPColor', {
+    Default = Color3.new(0.403922, 0.349020, 0.701961),
+    Title = 'Skeleton Color',
+    Transparency = 0
+})
+
+-- Health Text ESP
+VisLeft:AddToggle('HealthTextESP', {
+    Text = 'Health Text ESP',
+    Default = false,
+    Tooltip = 'Shows health as text'
+})
+
+-- Health Bar ESP
+VisLeft:AddToggle('HealthBarESP', {
+    Text = 'Health Bar ESP',
+    Default = false,
+    Tooltip = 'Shows health bar'
+})
+
+-- Tracer ESP
+VisLeft:AddToggle('TracerESP', {
+    Text = 'Tracer ESP',
+    Default = false,
+    Tooltip = 'Draws lines to players'
+})
+
+VisLeft:AddLabel('Tracer Color'):AddColorPicker('TracerESPColor', {
+    Default = Color3.new(0.403922, 0.349020, 0.701961),
+    Title = 'Tracer Color',
+    Transparency = 0
+})
+
+-- Chams
+VisLeft:AddToggle('ChamsESP', {
+    Text = 'Chams',
+    Default = false,
+    Tooltip = 'Highlights players through walls'
+})
+
+VisLeft:AddLabel('Chams Color'):AddColorPicker('ChamsESPColor', {
+    Default = Color3.new(1, 0, 0),
+    Title = 'Chams Color',
+    Transparency = 0
+})
+
+-- ESP Settings
+VisRight:AddToggle('ESPTeamCheck', {
+    Text = 'Team Check',
+    Default = true,
+    Tooltip = 'Ignore teammates'
+})
+
+VisRight:AddDropdown('ESPTracerOrigin', {
+    Values = { 'Bottom Screen', 'Cursor', 'Top Screen' },
+    Default = 1,
+    Multi = false,
+    Text = 'Tracer Origin'
+})
+
+-- ESP Distance & Colors
+VisSettings:AddSlider('ESPMaxDistance', {
+    Text = 'ESP Distance',
+    Default = 325,
+    Min = 100,
+    Max = 1000,
+    Rounding = 0,
+    Suffix = ' studs',
+    Compact = false
+})
+
+VisSettings:AddLabel('Enemy Color'):AddColorPicker('ESPEnemyColor', {
+    Default = Color3.new(1, 0, 0),
+    Title = 'Enemy Color',
+    Transparency = 0
+})
+
+VisSettings:AddLabel('Team Color'):AddColorPicker('ESPTeamColor', {
+    Default = Color3.new(0, 1, 0),
+    Title = 'Team Color',
+    Transparency = 0
+})
+
+-- ============================================================
+-- UI SETTINGS TAB
+-- ============================================================
+local MenuGroup = Tabs['UI Settings']:AddLeftGroupbox('Menu')
+
+MenuGroup:AddButton('Unload', function()
+    if esp then esp:Destroy() end
+    Library:Unload()
+end)
+
+MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', {
+    Default = 'End',
+    NoUI = true,
+    Text = 'Menu keybind'
+})
+
+Library.ToggleKeybind = Options.MenuKeybind
+
+ThemeManager:SetLibrary(Library)
+SaveManager:SetLibrary(Library)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
+ThemeManager:SetFolder('UnnamedEnchantments')
+SaveManager:SetFolder('UnnamedEnchantments/Rivals')
+SaveManager:BuildConfigSection(Tabs['UI Settings'])
+ThemeManager:ApplyToTab(Tabs['UI Settings'])
+
+-- ============================================================
+-- WATERMARK
+-- ============================================================
+Library:SetWatermarkVisibility(true)
+Library.KeybindFrame.Visible = true
+
+local FrameTimer = tick()
+local FrameCounter = 0
+local FPS = 60
+
+local WatermarkConnection = RunService.RenderStepped:Connect(function()
+    FrameCounter = FrameCounter + 1
+    if (tick() - FrameTimer) >= 1 then
+        FPS = FrameCounter
+        FrameTimer = tick()
+        FrameCounter = 0
+    end
+
+    local ping = 0
+    pcall(function()
+        ping = math.floor(game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue())
+    end)
+
+    Library:SetWatermark(('Unnamed Enchantments | Rivals | %s fps | %s ms'):format(
+        math.floor(FPS),
+        ping
+    ))
+end)
+
+-- ============================================================
+-- UNLOAD HANDLER
+-- ============================================================
+Library:OnUnload(function()
+    WatermarkConnection:Disconnect()
+    if esp then esp:Destroy() end
+    print('Unnamed Enchantments unloaded!')
+    Library.Unloaded = true
+end)
+
+-- ============================================================
+-- UTILITY FUNCTIONS
+-- ============================================================
+local function GetCharacter()
+    return LocalPlayer.Character
+end
+
+local function GetHumanoid()
+    local char = GetCharacter()
+    if char then
+        return char:FindFirstChildOfClass('Humanoid')
+    end
+    return nil
+end
+
+local function GetRootPart()
+    local char = GetCharacter()
+    if char then
+        return char:FindFirstChild('HumanoidRootPart')
+    end
+    return nil
+end
+
+local function IsAlive()
+    local hum = GetHumanoid()
+    return hum and hum.Health > 0
+end
+
+local function GetClosestPlayer(maxDist, teamCheck, wallCheck)
+    local closest = nil
+    local minDist = maxDist or math.huge
+    local localChar = GetCharacter()
+    if not localChar then return nil end
+    local localRoot = localChar:FindFirstChild('HumanoidRootPart')
+    if not localRoot then return nil end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player == LocalPlayer then continue end
+        if teamCheck and player.Team == LocalPlayer.Team then continue end
+
+        local char = player.Character
+        if not char then continue end
+        local root = char:FindFirstChild('HumanoidRootPart')
+        if not root then continue end
+        local hum = char:FindFirstChildOfClass('Humanoid')
+        if not hum or hum.Health <= 0 then continue end
+
+        local dist = (root.Position - localRoot.Position).Magnitude
+        if dist < minDist then
+            if wallCheck then
+                local rayParams = RaycastParams.new()
+                rayParams.FilterDescendantsInstances = { localChar }
+                rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                local result = Workspace:Raycast(Camera.CFrame.Position, (root.Position - Camera.CFrame.Position).Unit * dist, rayParams)
+                if result and result.Instance and not result.Instance:IsDescendantOf(char) then
+                    continue
+                end
+            end
+            minDist = dist
+            closest = player
+        end
+    end
+    return closest
+end
+
+local function GetTargetPart(char)
+    local partName = Options.AimbotPart and Options.AimbotPart.Value or 'Head'
+    if partName == 'Random' then
+        local parts = { 'Head', 'HumanoidRootPart', 'Torso', 'UpperTorso', 'LowerTorso' }
+        partName = parts[math.random(1, #parts)]
+    end
+    return char:FindFirstChild(partName) or char:FindFirstChild('Head') or char:FindFirstChild('HumanoidRootPart')
+end
+
+-- ============================================================
+-- SPEED HACK - VELOCITY BASED
+-- ============================================================
+local SpeedConnection = nil
+local SpeedBodyVelocity = nil
+
+Toggles.SpeedHack:OnChanged(function()
+    if Toggles.SpeedHack.Value then
+        Library:Notify('Speed Hack enabled', 2)
+        SpeedConnection = RunService.Heartbeat:Connect(function()
+            local char = GetCharacter()
+            local hum = GetHumanoid()
+            local root = GetRootPart()
+            if not char or not hum or not root then return end
+            if not IsAlive() then return end
+
+            local moveDir = hum.MoveDirection
+            if moveDir.Magnitude > 0 then
+                if not SpeedBodyVelocity or SpeedBodyVelocity.Parent ~= root then
+                    if SpeedBodyVelocity then SpeedBodyVelocity:Destroy() end
+                    SpeedBodyVelocity = Instance.new('BodyVelocity')
+                    SpeedBodyVelocity.MaxForce = Vector3.new(100000, 0, 100000)
+                    SpeedBodyVelocity.Velocity = Vector3.new(0, 0, 0)
+                    SpeedBodyVelocity.Parent = root
+                end
+                local speed = Options.WalkSpeed.Value
+                SpeedBodyVelocity.Velocity = Vector3.new(moveDir.X * speed, root.Velocity.Y, moveDir.Z * speed)
+            else
+                if SpeedBodyVelocity then
+                    SpeedBodyVelocity.Velocity = Vector3.new(0, root.Velocity.Y, 0)
+                end
+            end
+        end)
+    else
+        if SpeedConnection then
+            SpeedConnection:Disconnect()
+            SpeedConnection = nil
+        end
+        if SpeedBodyVelocity then
+            SpeedBodyVelocity:Destroy()
+            SpeedBodyVelocity = nil
+        end
+        local hum = GetHumanoid()
+        if hum then
+            hum.WalkSpeed = 16
+        end
+        Library:Notify('Speed Hack disabled', 2)
+    end
+end)
+
+-- ============================================================
+-- JUMP POWER
+-- ============================================================
+Toggles.JumpPower:OnChanged(function()
+    local hum = GetHumanoid()
+    if hum then
+        if Toggles.JumpPower.Value then
+            hum.JumpPower = Options.JumpHeight.Value
+        else
+            hum.JumpPower = 50
+        end
+    end
+end)
+
+Options.JumpHeight:OnChanged(function()
+    if Toggles.JumpPower.Value then
+        local hum = GetHumanoid()
+        if hum then
+            hum.JumpPower = Options.JumpHeight.Value
+        end
+    end
+end)
+
+-- ============================================================
+-- INFINITE JUMP
+-- ============================================================
+local InfiniteJumpConnection = nil
+
+Toggles.InfiniteJump:OnChanged(function()
+    if Toggles.InfiniteJump.Value then
+        InfiniteJumpConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+            if gameProcessed then return end
+            if input.KeyCode == Enum.KeyCode.Space then
+                local hum = GetHumanoid()
+                local root = GetRootPart()
+                if hum and root then
+                    hum:ChangeState(Enum.HumanoidStateType.Jumping)
+                end
+            end
+        end)
+    else
+        if InfiniteJumpConnection then
+            InfiniteJumpConnection:Disconnect()
+            InfiniteJumpConnection = nil
+        end
+    end
+end)
+
+-- ============================================================
+-- BUNNY HOP
+-- ============================================================
+local BunnyHopConnection = nil
+
+Toggles.BunnyHop:OnChanged(function()
+    if Toggles.BunnyHop.Value then
+        BunnyHopConnection = RunService.Heartbeat:Connect(function()
+            local hum = GetHumanoid()
+            local root = GetRootPart()
+            if hum and root then
+                if hum.MoveDirection.Magnitude > 0 and hum.FloorMaterial ~= Enum.Material.Air then
+                    hum:ChangeState(Enum.HumanoidStateType.Jumping)
+                end
+            end
+        end)
+    else
+        if BunnyHopConnection then
+            BunnyHopConnection:Disconnect()
+            BunnyHopConnection = nil
+        end
+    end
+end)
+
+-- ============================================================
+-- FLY - VELOCITY BASED
+-- ============================================================
+local FlyConnection = nil
+local FlyBodyVelocity = nil
+local FlyBodyGyro = nil
+
+Toggles.Fly:OnChanged(function()
+    if Toggles.Fly.Value then
+        Library:Notify('Fly enabled - Use WASD + Space/Shift', 3)
+        FlyConnection = RunService.RenderStepped:Connect(function()
+            local char = GetCharacter()
+            local hum = GetHumanoid()
+            local root = GetRootPart()
+            if not char or not hum or not root then return end
+            if not IsAlive() then return end
+
+            if not FlyBodyVelocity or FlyBodyVelocity.Parent ~= root then
+                if FlyBodyVelocity then FlyBodyVelocity:Destroy() end
+                FlyBodyVelocity = Instance.new('BodyVelocity')
+                FlyBodyVelocity.MaxForce = Vector3.new(100000, 100000, 100000)
+                FlyBodyVelocity.Velocity = Vector3.new(0, 0, 0)
+                FlyBodyVelocity.Parent = root
+            end
+
+            if not FlyBodyGyro or FlyBodyGyro.Parent ~= root then
+                if FlyBodyGyro then FlyBodyGyro:Destroy() end
+                FlyBodyGyro = Instance.new('BodyGyro')
+                FlyBodyGyro.MaxTorque = Vector3.new(100000, 100000, 100000)
+                FlyBodyGyro.P = 10000
+                FlyBodyGyro.CFrame = root.CFrame
+                FlyBodyGyro.Parent = root
+            end
+
+            FlyBodyGyro.CFrame = Camera.CFrame
+
+            local moveDir = Vector3.new(0, 0, 0)
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                moveDir = moveDir + Camera.CFrame.LookVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                moveDir = moveDir - Camera.CFrame.LookVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                moveDir = moveDir - Camera.CFrame.RightVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                moveDir = moveDir + Camera.CFrame.RightVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                moveDir = moveDir + Vector3.new(0, 1, 0)
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+                moveDir = moveDir - Vector3.new(0, 1, 0)
+            end
+
+            local speed = Options.FlySpeed.Value
+            if moveDir.Magnitude > 0 then
+                moveDir = moveDir.Unit * speed
+            end
+            FlyBodyVelocity.Velocity = moveDir
+        end)
+    else
+        if FlyConnection then
+            FlyConnection:Disconnect()
+            FlyConnection = nil
+        end
+        if FlyBodyVelocity then
+            FlyBodyVelocity:Destroy()
+            FlyBodyVelocity = nil
+        end
+        if FlyBodyGyro then
+            FlyBodyGyro:Destroy()
+            FlyBodyGyro = nil
+        end
+        Library:Notify('Fly disabled', 2)
+    end
+end)
+
+-- ============================================================
+-- NOCLIP
+-- ============================================================
+local NoClipConnection = nil
+
+Toggles.NoClip:OnChanged(function()
+    if Toggles.NoClip.Value then
+        Library:Notify('NoClip enabled', 2)
+        NoClipConnection = RunService.Stepped:Connect(function()
+            local char = GetCharacter()
+            if char then
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA('BasePart') then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    else
+        if NoClipConnection then
+            NoClipConnection:Disconnect()
+            NoClipConnection = nil
+        end
+        local char = GetCharacter()
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA('BasePart') then
+                    part.CanCollide = true
+                end
+            end
+        end
+        Library:Notify('NoClip disabled', 2)
+    end
+end)
+
+-- ============================================================
+-- AUTO STRAFE
+-- ============================================================
+local AutoStrafeConnection = nil
+
+Toggles.AutoStrafe:OnChanged(function()
+    if Toggles.AutoStrafe.Value then
+        AutoStrafeConnection = RunService.RenderStepped:Connect(function()
+            local hum = GetHumanoid()
+            local root = GetRootPart()
+            if hum and root then
+                if hum.MoveDirection.Magnitude > 0 and hum.FloorMaterial == Enum.Material.Air then
+                    local camLook = Camera.CFrame.LookVector
+                    local camRight = Camera.CFrame.RightVector
+                    local moveDir = hum.MoveDirection
+                    local dot = camLook:Dot(moveDir)
+                    if math.abs(dot) < 0.5 then
+                        local strafeDir = camRight:Dot(moveDir) > 0 and 1 or -1
+                        root.Velocity = root.Velocity + camRight * strafeDir * 2
+                    end
+                end
+            end
+        end)
+    else
+        if AutoStrafeConnection then
+            AutoStrafeConnection:Disconnect()
+            AutoStrafeConnection = nil
+        end
+    end
+end)
+
+-- ============================================================
+-- EDGE JUMP
+-- ============================================================
+local EdgeJumpConnection = nil
+
+Toggles.EdgeJump:OnChanged(function()
+    if Toggles.EdgeJump.Value then
+        EdgeJumpConnection = RunService.Heartbeat:Connect(function()
+            local hum = GetHumanoid()
+            local root = GetRootPart()
+            if hum and root then
+                if hum.MoveDirection.Magnitude > 0 and hum.FloorMaterial ~= Enum.Material.Air then
+                    local rayParams = RaycastParams.new()
+                    rayParams.FilterDescendantsInstances = { GetCharacter() }
+                    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                    local result = Workspace:Raycast(root.Position, hum.MoveDirection * 3, rayParams)
+                    if not result then
+                        hum:ChangeState(Enum.HumanoidStateType.Jumping)
+                    end
+                end
+            end
+        end)
+    else
+        if EdgeJumpConnection then
+            EdgeJumpConnection:Disconnect()
+            EdgeJumpConnection = nil
+        end
+    end
+end)
+
+-- ============================================================
+-- FAST LADDER
+-- ============================================================
+local FastLadderConnection = nil
+
+Toggles.FastLadder:OnChanged(function()
+    if Toggles.FastLadder.Value then
+        FastLadderConnection = RunService.Heartbeat:Connect(function()
+            local hum = GetHumanoid()
+            local root = GetRootPart()
+            if hum and root then
+                if hum:GetState() == Enum.HumanoidStateType.Climbing then
+                    root.Velocity = Vector3.new(root.Velocity.X, 50, root.Velocity.Z)
+                end
+            end
+        end)
+    else
+        if FastLadderConnection then
+            FastLadderConnection:Disconnect()
+            FastLadderConnection = nil
+        end
+    end
+end)
+
+-- ============================================================
+-- AIMBOT LOGIC
+-- ============================================================
+local AimbotConnection = nil
+local FOV_Circle = nil
+
+local function CreateFOVCircle()
+    if FOV_Circle then FOV_Circle:Remove() end
+    FOV_Circle = Drawing.new('Circle')
+    FOV_Circle.Visible = false
+    FOV_Circle.Thickness = 1.5
+    FOV_Circle.Color = Color3.new(1, 1, 1)
+    FOV_Circle.Transparency = 0.5
+    FOV_Circle.Filled = false
+    FOV_Circle.NumSides = 64
+    return FOV_Circle
+end
+
+CreateFOVCircle()
+
+Toggles.Aimbot:OnChanged(function()
+    if Toggles.Aimbot.Value then
+        Library:Notify('Aimbot enabled', 2)
+        AimbotConnection = RunService.RenderStepped:Connect(function()
+            if FOV_Circle then
+                if Toggles.AimbotShowFOV.Value then
+                    FOV_Circle.Visible = true
+                    FOV_Circle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                    FOV_Circle.Radius = Options.AimbotFOV.Value
+                else
+                    FOV_Circle.Visible = false
+                end
+            end
+
+            local target = GetClosestPlayer(
+                Options.AimbotFOV.Value,
+                Toggles.AimbotTeamCheck.Value,
+                Toggles.AimbotWallCheck.Value
+            )
+            if target then
+                local char = target.Character
+                local targetPart = GetTargetPart(char)
+                if targetPart then
+                    local smoothness = Options.AimbotSmoothness.Value
+                    if smoothness > 0 then
+                        local targetCF = CFrame.new(Camera.CFrame.Position, targetPart.Position)
+                        Camera.CFrame = Camera.CFrame:Lerp(targetCF, smoothness)
+                    else
+                        Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetPart.Position)
+                    end
+                end
+            end
+        end)
+    else
+        if AimbotConnection then
+            AimbotConnection:Disconnect()
+            AimbotConnection = nil
+        end
+        if FOV_Circle then
+            FOV_Circle.Visible = false
+        end
+        Library:Notify('Aimbot disabled', 2)
+    end
+end)
+
+Options.AimbotFOV:OnChanged(function()
+    if FOV_Circle then
+        FOV_Circle.Radius = Options.AimbotFOV.Value
+    end
+end)
+
+Toggles.AimbotShowFOV:OnChanged(function()
+    if not Toggles.AimbotShowFOV.Value and FOV_Circle then
+        FOV_Circle.Visible = false
+    end
+end)
+
+-- ============================================================
+-- ZixyESP INTEGRATION - VISUALS TAB CALLBACKS
+-- ============================================================
+
+-- Load ZixyESP when needed
+local function EnsureESP()
+    if not ESP_Loaded then
+        local loaded = LoadZixyESP()
+        if loaded then
+            esp:Initialize()
+            Library:Notify('ZixyESP loaded successfully!', 3)
+        else
+            Library:Notify('Failed to load ZixyESP. Visuals may not work.', 5)
+        end
+    end
+    return ESP_Loaded
+end
+
+-- Box ESP
+Toggles.BoxESP:OnChanged(function()
+    if not EnsureESP() then return end
+    if Toggles.BoxESP.Value then
+        esp:InitiateBox(Options.BoxESPColor.Value)
+    else
+        esp.State.BoxEnabled = false
+    end
+end)
+
+Options.BoxESPColor:OnChanged(function()
+    if not EnsureESP() then return end
+    esp.Config.BoxColor = Options.BoxESPColor.Value
+    if esp.Caches and esp.Caches.BoxCache then
+        for _, espObj in pairs(esp.Caches.BoxCache) do
+            if espObj.Box then
+                espObj.Box.Color = Options.BoxESPColor.Value
+            end
+        end
+    end
+end)
+
+-- Name ESP
+Toggles.NameESP:OnChanged(function()
+    if not EnsureESP() then return end
+    esp:InitiateName(Toggles.NameESP.Value)
+end)
+
+-- Distance ESP
+Toggles.DistanceESP:OnChanged(function()
+    if not EnsureESP() then return end
+    esp:InitiateDistance(Toggles.DistanceESP.Value)
+end)
+
+-- Skeleton ESP
+Toggles.SkeletonESP:OnChanged(function()
+    if not EnsureESP() then return end
+    if Toggles.SkeletonESP.Value then
+        esp:InitiateSkeleton(Options.SkeletonESPColor.Value)
+    else
+        esp.State.SkeletonEnabled = false
+    end
+end)
+
+Options.SkeletonESPColor:OnChanged(function()
+    if not EnsureESP() then return end
+    esp.Config.SkeletonColor = Options.SkeletonESPColor.Value
+    if esp.Caches and esp.Caches.SkeletonCache then
+        for _, skeleton in pairs(esp.Caches.SkeletonCache) do
+            for _, line in pairs(skeleton) do
+                if line then
+                    line.Color = Options.SkeletonESPColor.Value
+                end
+            end
+        end
+    end
+end)
+
+-- Health Text ESP
+Toggles.HealthTextESP:OnChanged(function()
+    if not EnsureESP() then return end
+    esp:InitiateHealthText(Toggles.HealthTextESP.Value)
+end)
+
+-- Health Bar ESP
+Toggles.HealthBarESP:OnChanged(function()
+    if not EnsureESP() then return end
+    esp:InitiateHealthBar(Toggles.HealthBarESP.Value)
+end)
+
+-- Tracer ESP
+Toggles.TracerESP:OnChanged(function()
+    if not EnsureESP() then return end
+    if Toggles.TracerESP.Value then
+        local origin = Options.ESPTracerOrigin and Options.ESPTracerOrigin.Value or 'Bottom Screen'
+        esp:InitiateTracer(Options.TracerESPColor.Value, origin)
+    else
+        esp.State.TracerEnabled = false
+    end
+end)
+
+Options.TracerESPColor:OnChanged(function()
+    if not EnsureESP() then return end
+    esp.Config.TracerColor = Options.TracerESPColor.Value
+    if esp.Caches and esp.Caches.TracerCache then
+        for _, tracer in pairs(esp.Caches.TracerCache) do
+            if tracer then
+                tracer.Color = Options.TracerESPColor.Value
+            end
+        end
+    end
+end)
+
+Options.ESPTracerOrigin:OnChanged(function()
+    if not EnsureESP() then return end
+    esp.Config.TracerOrigin = Options.ESPTracerOrigin.Value
+end)
+
+-- Chams
+Toggles.ChamsESP:OnChanged(function()
+    if not EnsureESP() then return end
+    if Toggles.ChamsESP.Value then
+        esp:InitiateChams(Options.ChamsESPColor.Value)
+    else
+        esp.State.ChamsEnabled = false
+    end
+end)
+
+Options.ChamsESPColor:OnChanged(function()
+    if not EnsureESP() then return end
+    esp.Config.ChamsColor = Options.ChamsESPColor.Value
+    if esp.Caches and esp.Caches.ChamsCache then
+        for _, chams in pairs(esp.Caches.ChamsCache) do
+            if chams then
+                chams.FillColor = Options.ChamsESPColor.Value
+            end
+        end
+    end
+end)
+
+-- Team Check
+Toggles.ESPTeamCheck:OnChanged(function()
+    if not EnsureESP() then return end
+    esp:TeamCheck(Toggles.ESPTeamCheck.Value)
+end)
+
+-- Distance
+Options.ESPMaxDistance:OnChanged(function()
+    if not EnsureESP() then return end
+    esp:SetDistance(Options.ESPMaxDistance.Value)
+end)
+
+-- ============================================================
+-- FULL BRIGHT
+-- ============================================================
+local OriginalBrightness = Lighting.Brightness
+local OriginalGlobalShadows = Lighting.GlobalShadows
+
+Toggles.FullBright:OnChanged(function()
+    if Toggles.FullBright.Value then
+        Lighting.Brightness = 10
+        Lighting.GlobalShadows = false
+    else
+        Lighting.Brightness = OriginalBrightness
+        Lighting.GlobalShadows = OriginalGlobalShadows
+    end
+end)
+
+-- ============================================================
+-- NO FOG
+-- ============================================================
+local OriginalFogStart = Lighting.FogStart
+local OriginalFogEnd = Lighting.FogEnd
+
+Toggles.NoFog:OnChanged(function()
+    if Toggles.NoFog.Value then
+        Lighting.FogStart = 100000
+        Lighting.FogEnd = 100000
+    else
+        Lighting.FogStart = OriginalFogStart
+        Lighting.FogEnd = OriginalFogEnd
+    end
+end)
+
+-- ============================================================
+-- FOV CHANGER
+-- ============================================================
+local OriginalFOV = Camera.FieldOfView
+
+Toggles.FOVChanger:OnChanged(function()
+    if Toggles.FOVChanger.Value then
+        Camera.FieldOfView = Options.FOVValue.Value
+    else
+        Camera.FieldOfView = OriginalFOV
+    end
+end)
+
+Options.FOVValue:OnChanged(function()
+    if Toggles.FOVChanger.Value then
+        Camera.FieldOfView = Options.FOVValue.Value
+    end
+end)
+
+-- ============================================================
+-- CHARACTER ADDED HANDLER
+-- ============================================================
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.wait(0.5)
+
+    if Toggles.SpeedHack.Value then
+        -- Speed is handled by BodyVelocity in Heartbeat
+    end
+
+    if Toggles.JumpPower.Value then
+        local hum = char:FindFirstChildOfClass('Humanoid')
+        if hum then
+            hum.JumpPower = Options.JumpHeight.Value
+        end
+    end
+
+    if Toggles.Fly.Value then
+        -- Fly will recreate BodyVelocity on next frame
+    end
+
+    if Toggles.NoClip.Value then
+        -- NoClip will handle on next Stepped frame
+    end
+end)
+
+-- ============================================================
+-- CLEANUP ON UNLOAD
+-- ============================================================
+Library:OnUnload(function()
+    if SpeedConnection then SpeedConnection:Disconnect() end
+    if FlyConnection then FlyConnection:Disconnect() end
+    if NoClipConnection then NoClipConnection:Disconnect() end
+    if InfiniteJumpConnection then InfiniteJumpConnection:Disconnect() end
+    if BunnyHopConnection then BunnyHopConnection:Disconnect() end
+    if AutoStrafeConnection then AutoStrafeConnection:Disconnect() end
+    if EdgeJumpConnection then EdgeJumpConnection:Disconnect() end
+    if FastLadderConnection then FastLadderConnection:Disconnect() end
+    if AimbotConnection then AimbotConnection:Disconnect() end
+
+    if SpeedBodyVelocity then SpeedBodyVelocity:Destroy() end
+    if FlyBodyVelocity then FlyBodyVelocity:Destroy() end
+    if FlyBodyGyro then FlyBodyGyro:Destroy() end
+
+    if FOV_Circle then FOV_Circle:Remove() end
+
+    if esp then esp:Destroy() end
+
+    Lighting.Brightness = OriginalBrightness
+    Lighting.GlobalShadows = OriginalGlobalShadows
+    Lighting.FogStart = OriginalFogStart
+    Lighting.FogEnd = OriginalFogEnd
+    Camera.FieldOfView = OriginalFOV
+
+    local hum = GetHumanoid()
+    if hum then
+        hum.WalkSpeed = 16
+        hum.JumpPower = 50
+    end
+
+    local char = GetCharacter()
+    if char then
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA('BasePart') then
+                part.CanCollide = true
+            end
+        end
+    end
+
+    WatermarkConnection:Disconnect()
+    print('Unnamed Enchantments fully cleaned up!')
+end)
+
+print('Unnamed Enchantments for Rivals loaded successfully!')
+print('ZixyESP integration ready. Enable any ESP feature to auto-load.')
