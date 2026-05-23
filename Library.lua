@@ -200,6 +200,12 @@ end;
 function Library:MakeDraggable(Instance, Cutoff)
     Instance.Active = true;
 
+    local dragging = false;
+    local dragInput = nil;
+    local dragOffset = nil;
+    local dragProxy = nil;
+    local isCanvasGroup = Instance:IsA("CanvasGroup");
+
     Instance.InputBegan:Connect(function(Input)
         if Input.UserInputType == Enum.UserInputType.MouseButton1 then
             local ObjPos = Vector2.new(
@@ -211,20 +217,90 @@ function Library:MakeDraggable(Instance, Cutoff)
                 return;
             end;
 
-            task.spawn(function()
-                while InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
-                    if not Instance or not Instance.Parent then break end;
-                    Instance.Position = UDim2.new(
-                        0,
-                        Mouse.X - ObjPos.X + (Instance.Size.X.Offset * Instance.AnchorPoint.X),
-                        0,
-                        Mouse.Y - ObjPos.Y + (Instance.Size.Y.Offset * Instance.AnchorPoint.Y)
-                    );
-                    RunService.Heartbeat:Wait();
+            dragging = true;
+            dragOffset = Vector2.new(
+                Mouse.X - Instance.AbsolutePosition.X,
+                Mouse.Y - Instance.AbsolutePosition.Y
+            );
+
+            -- For CanvasGroup windows, create a lightweight drag proxy
+            -- This avoids the rasterization lag where only the outline moves
+            if isCanvasGroup then
+                dragProxy = Instance:Clone();
+                dragProxy.Name = "DragProxy";
+                dragProxy:ClearAllChildren();
+                dragProxy.BackgroundColor3 = Color3.new(0, 0, 0);
+                dragProxy.BackgroundTransparency = 0.5;
+                dragProxy.GroupTransparency = 0;
+                dragProxy.BorderSizePixel = 0;
+                dragProxy.ZIndex = 1000;
+                dragProxy.Parent = ScreenGui;
+
+                -- Add accent border
+                local ProxyStroke = Library:Create("UIStroke", {
+                    Color = Library.AccentColor;
+                    Thickness = 2;
+                    Parent = dragProxy;
+                });
+
+                -- Add corner radius matching the original
+                local ProxyCorner = Library:Create("UICorner", {
+                    CornerRadius = Library.WindowCornerRadius;
+                    Parent = dragProxy;
+                });
+
+                dragProxy.Position = Instance.Position;
+                dragProxy.Size = Instance.Size;
+                dragProxy.AnchorPoint = Instance.AnchorPoint;
+
+                -- Hide the real window while dragging
+                Instance.Visible = false;
+            end;
+
+            Input.Changed:Connect(function()
+                if Input.UserInputState == Enum.UserInputState.End then
+                    dragging = false;
+
+                    -- Snap the real window to the proxy position and cleanup
+                    if isCanvasGroup and dragProxy then
+                        Instance.Position = dragProxy.Position;
+                        Instance.Visible = true;
+                        dragProxy:Destroy();
+                        dragProxy = nil;
+                    end;
                 end;
             end);
         end;
-    end)
+    end);
+
+    Instance.InputChanged:Connect(function(Input)
+        if Input.UserInputType == Enum.UserInputType.MouseMovement then
+            dragInput = Input;
+        end;
+    end);
+
+    Library:GiveSignal(InputService.InputChanged:Connect(function(Input)
+        if Input == dragInput and dragging then
+            if not Instance or not Instance.Parent then
+                dragging = false;
+                if dragProxy then
+                    dragProxy:Destroy();
+                    dragProxy = nil;
+                end;
+                return;
+            end;
+
+            local newX = Mouse.X - dragOffset.X + (Instance.Size.X.Offset * Instance.AnchorPoint.X);
+            local newY = Mouse.Y - dragOffset.Y + (Instance.Size.Y.Offset * Instance.AnchorPoint.Y);
+            local newPos = UDim2.new(0, newX, 0, newY);
+
+            if isCanvasGroup and dragProxy then
+                dragProxy.Position = newPos;
+            else
+                Instance.Position = newPos;
+            end;
+        end;
+    end));
 end;
 
 function Library:AddToolTip(InfoStr, HoverInstance)
