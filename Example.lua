@@ -1,4 +1,4 @@
-local repo = 'https://raw.githubusercontent.com/ofugii/Unnamed-Linoria/main/'
+local repo = 'https://raw.githubusercontent.com/cabscer/Unnamed-Enchantments/main/'
 
 local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
 local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
